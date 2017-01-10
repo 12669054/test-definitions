@@ -47,12 +47,18 @@ else
     # shellcheck disable=SC2154
     case "${dist}" in
         Debian|Ubuntu)
-            install_deps "build-essential automake libtool mysql-server libmysqlclient18 mysql-common libmysqlclient-dev"
-            systemctl start mysql
+            install_deps "git build-essential automake libtool libmysqlclient-dev"
+            if echo "${TESTS}" | grep "oltp"; then
+                install_deps "mysql-server"
+                systemctl start mysql
+            fi
             ;;
         Fedora|CentOS)
-            install_deps "gcc make automake libtool mariadb-server mariadb mysql-devel"
-            systemctl start mariadb
+            install_deps "git gcc make automake libtool mysql-devel"
+            if echo "${TESTS}" | grep "oltp"; then
+                install_deps "mariadb-server mariadb"
+                systemctl start mariadb
+            fi
             ;;
         *)
             error_msg "Unsupported distribution: ${dist_name}"
@@ -142,7 +148,7 @@ for tc in ${TESTS}; do
             # Delete sysbench in case it exists.
             mysql --user='root' --password='lxmptest' -e 'DROP DATABASE sysbench' > /dev/null 2>&1 || true
             # Create sysbench database.
-            mysql --user="root" --password="lxmptest" -e "CREATE DATABASE sysbench;"
+            mysql --user="root" --password="lxmptest" -e "CREATE DATABASE sysbench"
 
             sysbench --num-threads="${NUM_THREADS}" --test=oltp --db-driver=mysql --oltp-table-size=1000000 --mysql-db=sysbench --mysql-user=root --mysql-password=lxmptest prepare
             sysbench --num-threads="${NUM_THREADS}" --test=oltp --db-driver=mysql --oltp-table-size=1000000 --mysql-db=sysbench --mysql-user=root --mysql-password=lxmptest run | tee "${logfile}"
