@@ -16,7 +16,7 @@ while getopts 's:h' opt; do
     esac
 done
 
-! check_root && error_msg "Plese run this script as root."
+! check_root && error_msg "Please run this script as root."
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
 cd "${OUTPUT}"
@@ -32,8 +32,8 @@ cp Makefile Makefile.bak
 sed -i 's/OPTON += -march=native -mtune=native/#OPTON += -march=native -mtune=native/' Makefile
 
 log_parser() {
-    prefix="$0"
-    logfile="$1"
+    prefix="$1"
+    logfile="$2"
 
     # Test Result.
     egrep "[0-9.]+ [a-zA-Z]+ +\([0-9.]+ s," "${logfile}" \
@@ -44,6 +44,9 @@ log_parser() {
     egrep "[0-9]+\.[0-9] +[0-9]+\.[0-9] +[0-9]+\.[0-9]" "${logfile}" \
         | awk -v prefix="${prefix}" '{printf(prefix)};{for (i=1;i<=(NF-3);i++) printf("-%s",$i)};{printf(" pass %s index\n"),$NF}' \
         | tee -a "${RESULT_FILE}"
+
+    ms=$(grep "System Benchmarks Index Score" "${logfile}" | awk '{print $NF}')
+    add_metric "${prefix}-System-Benchmarks-Index-Score" "pass" "${ms}" "index"
 }
 
 # Run a single copy.
