@@ -129,7 +129,8 @@ for tc in ${TESTS}; do
                 echo 3 > /proc/sys/vm/drop_caches
                 sleep 5
                 sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" prepare
-                sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" run | tee "${logfile}"
+                # --file-extra-flags=direct is needed when file size is smaller then RAM.
+                sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-extra-flags=direct --file-total-size=2G --file-test-mode="${mode}" run | tee "${logfile}"
                 sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" cleanup
                 general_parser
 
