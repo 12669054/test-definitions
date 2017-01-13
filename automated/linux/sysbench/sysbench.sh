@@ -34,7 +34,17 @@ while getopts "n:t:s:h" opt; do
     esac
 done
 
-! check_root && error_msg "Plese run this script as root."
+install_sysbench() {
+    git clone https://github.com/akopytov/sysbench
+    cd sysbench
+    git checkout 0.4
+    ./autogen.sh
+    ./configure "$1"
+    make install
+    cd ../
+}
+
+! check_root && error_msg "Please run this script as root."
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
 cd "${OUTPUT}"
@@ -47,31 +57,31 @@ else
     # shellcheck disable=SC2154
     case "${dist}" in
         Debian|Ubuntu)
-            install_deps "git build-essential automake libtool libmysqlclient-dev"
+            install_deps "git build-essential automake libtool"
             if echo "${TESTS}" | grep "oltp"; then
-                install_deps "mysql-server"
+                install_deps "libmysqlclient-dev mysql-server"
                 systemctl start mysql
+                install_sysbench
+            else
+                install_sysbench "--without-mysql"
             fi
             ;;
         Fedora|CentOS)
-            install_deps "git gcc make automake libtool mysql-devel"
+            install_deps "git gcc make automake libtool"
             if echo "${TESTS}" | grep "oltp"; then
-                install_deps "mariadb-server mariadb"
+                install_deps "mysql-devel mariadb-server mariadb"
                 systemctl start mariadb
+                install_sysbench
+            else
+                install_sysbench "--without-mysql"
             fi
             ;;
-        *)
-            error_msg "Unsupported distribution: ${dist_name}"
+        Unknown)
+            warn_msg "Unsupported distro: package install skipped"
+            warn_msg "About to compile sysbench directly"
+            info_msg "set 'SKIP_INSTALL' to 'false' to skip 'install_sysbench'"
             ;;
     esac
-
-    git clone https://github.com/akopytov/sysbench
-    cd sysbench
-    git checkout 0.4
-    ./autogen.sh
-    ./configure
-    make install
-    cd ../
 fi
 
 # Verify test installation.
