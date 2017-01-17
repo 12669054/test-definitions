@@ -6,7 +6,7 @@
 # shellcheck disable=SC1091
 . ../../lib/sh-test-lib
 
-OUTPUT="${WD}/output"
+OUTPUT="$(pwd)/output"
 LOGFILE="${OUTPUT}/cyclictest.txt"
 RESULT_FILE="${OUTPUT}/result.txt"
 

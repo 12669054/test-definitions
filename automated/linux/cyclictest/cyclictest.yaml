@@ -27,7 +27,6 @@ metadata:
         - d05
 
 params:
-    SKIP_INSTALL: "false"
     # Priority of highest prio thread.
     PRIORITY: "99"
     # Base interval of thread in us.
@@ -40,5 +39,5 @@ params:
 run:
     steps:
         - cd ./automated/linux/cyclictest/
-        - ./cyclictest.sh -s "${SKIP_INSTALL}" -p "${PRIORITY}" -i "${INTERVAL}" -t "${THREADS}" -l "${LOOPS}"
+        - ./cyclictest.sh -p "${PRIORITY}" -i "${INTERVAL}" -t "${THREADS}" -l "${LOOPS}"
         - ../../utils/send-to-lava.sh ./output/result.txt
