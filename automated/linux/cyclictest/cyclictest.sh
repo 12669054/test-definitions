@@ -42,6 +42,7 @@ detect_abi
 
 # Parse test log.
 tail -n "${THREADS}" "${LOGFILE}" \
+    | sed 's/T:/T: /' \
     | awk '{printf("t%s-min-latency pass %s us\n", $2, $(NF-6))};
            {printf("t%s-avg-latency pass %s us\n", $2, $(NF-2))};
            {printf("t%s-max-latency pass %s us\n", $2, $NF)};'  \
