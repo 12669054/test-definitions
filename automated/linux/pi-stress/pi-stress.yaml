@@ -1,6 +1,6 @@
 metadata:
     format: Lava-Test Test Definition 1.0
-    name: pi-stress-test
+    name: pi-stress
     description: "pi_stress checks Priority Inheritence Mutexes and their
                   ability to avoid Priority Inversion from occuring by running
                   groups of threads that cause Priority Inversions."
@@ -28,8 +28,8 @@ params:
     # Length of the test run in seconds
     DURATION: 300
     # Set MLOCKALL to "true" to lock current and future memory
-    MLOCKALL: "" 
-    # Set RR to "true" to use SCHED_RR for test threads. 
+    MLOCKALL: ""
+    # Set RR to "true" to use SCHED_RR for test threads.
     # It uses SCHED_FIFO by default.
     RR: ""
 

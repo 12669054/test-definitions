@@ -78,8 +78,6 @@ else
             ;;
         Unknown)
             warn_msg "Unsupported distro: package install skipped"
-            warn_msg "About to compile sysbench directly"
-            info_msg "set 'SKIP_INSTALL' to 'false' to skip 'install_sysbench'"
             ;;
     esac
 fi
