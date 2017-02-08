@@ -2,7 +2,7 @@
 Test Writing Guidelines
 =======================
 
-This document describes guidelines and is intended for anybody who want to write
+This document describes guidelines and is intended for anybody who wants to write
 or modify a test case. It's not a definitive guide and it's not, by any means, a
 substitute for common sense.
 
@@ -12,7 +12,7 @@ General Rules
 1. Simplicity
 -------------
 
-It's worth keep test cases as simple as possible.
+It's worth keeping test cases as simple as possible.
 
 2. Code duplication
 -------------------
@@ -77,44 +77,67 @@ Linux
 1. Structure
 ~~~~~~~~~~~~
 
-Tests are generally placed under 'linux/' directory. Everything that related to
+Tests are generally placed under 'linux/' directory. Everything that relates to
 the test goes under the same folder named with test case name.
 
 Define 'linux/test-case-name/output' folder in test case to save test output and
 result. Using a dedicated folder is helpful to distinguish between test script
 and test output.
 
-2. Installing dependence
-~~~~~~~~~~~~~~~~~~~~~~~~
+2. Installing dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The same test case should support Debian/Ubuntu, Fedora/CentOS and OE builds.
+The same test case should work on Debian/Ubuntu, Fedora/CentOS and OE based
+distributions whenever possible. This can be achieved with install_deps()
+function. The following is a simple example. "${SKIP_INSTALL}" should be set to
+'true' on distributions that do not supported install_deps(). In the unsupported
+case, if "${SKIP_INSTALL}" is 'true', install_deps() still will skip package
+installation.
 
-When using package management tool like apt or yum/dnf to install dependencies,
-package name may vary depending on the distributions you want to support, so you
-will need to define dependent packages by distribution. dist_name and
-install_deps functions provided in 'lib/sh-test-lib' can be used to detect the
-distribution at running time and handle package installation respectively.
+Example 1::
 
-On OSes built using OpenEmbedded that don't support installing additional
-packages, even compile and install from source code is impossible when tool
-chain isn't available. The required dependencies should be pre-install. To run
-test case that contain install steps on this kind of OS:
+    install_deps "${pkgs}" "${SKIP_INSTALL}"
 
-    * Define 'SKIP_INSTALL' variable with 'False' as default.
-    * Add parameter '-s <True|False>', so that user can modify 'SKIP_INSTALL'.
-    * Use "install_deps ${pkgs} ${SKIP_INSTALL}" to install package. It will
-      check the value of 'SKIP_INSTALL' to determine whether skip the install.
-    * When you have customized install steps like code downloading, compilation
-      and install defined, you will need to do the check yourself.
+Package name may vary by distribution. In this case, you will need to handle
+package installation with separate lines. dist_name() function is designed to
+detect the distribution ID at running time so that you can define package name
+by distribution. Refer to the following example.
 
-An example::
+Example 2::
 
     dist_name
     case "${dist}" in
-      Debian|Ubuntu) pkgs="lsb-release" ;;
-      Fedora|CentOS) pkgs="redhat-lsb-core" ;;
+      debian|ubuntu) install_deps "lsb-release" "${SKIP_INSTALL}" ;;
+      fedora|centos) install_deps "redhat-lsb-core" "${SKIP_INSTALL}" ;;
+      *) warn_msg "Unsupported distro: ${dist}! Package installation skipped." ;;
     esac
-    install_deps "${pkgs}" "${SKIP_INSTALL}"
+
+Except automated package installation, you may also need to download and install
+software manually. If you want to make these steps skippable, here is an
+example.
+
+Example 3::
+
+    if [ "${SKIP_INSTALL}" = "true" ] || [ "${SKIP_INSTALL}" = "True" ]; then
+        dist_name
+        case "${dist}" in
+            debian|ubuntu) install_deps "${pkgs}" ;;
+            fedora|centos) install_deps "${pkgs}" ;;
+            *) warn_msg "Unsupported distro: ${dist}! Package installation skipped." ;;
+        esac
+
+        # manually install steps.
+        git clone "${repo}"
+        cd "${dir}"
+        ./configure && make install
+    fi
+
+Hopefully, the above 3 examples cover most of the user cases. When
+writing test cases, in general:
+
+    * Define 'SKIP_INSTALL' variable with 'false' as default.
+    * Add parameter '-s <True|False>', so that user can modify 'SKIP_INSTALL'.
+    * Try to use the above functions, and give unknown distributions more care.
 
 3. Saving output
 ~~~~~~~~~~~~~~~~~
@@ -129,11 +152,12 @@ Saving parsed result in the same format is important for post process such as
 sending to LAVA. The following result format should be followed.
 
     test-caes-id pass/fail/skip
+    test-case-id pass/fail/skip measurement
     test-case-id pass/fail/skip measurement units
 
 'output/result.txt' file is recommended to save result.
 
-We encourage test writer to use the functions defined in 'sh-test-lib' to format
+We encourage test writers to use the functions defined in 'sh-test-lib' to format
 test result.
 
 Print "test-case pass/fail" by checking exit code::
@@ -142,7 +166,7 @@ Print "test-case pass/fail" by checking exit code::
 
 Add a metric for performance test::
 
-    add_metic "${test-case-id}" "pass/fail/skip" "${measurement}" "${units"}
+    add_metic "${test-case-id}" "pass/fail/skip" "${measurement}" "${units}"
 
 
 5. Running in LAVA
