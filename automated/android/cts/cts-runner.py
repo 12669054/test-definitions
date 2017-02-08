@@ -91,6 +91,12 @@ except pexpect.TIMEOUT:
     py_test_lib.add_result(RESULT_FILE, result)
 
 while child.isalive():
+    # It might be an issue in lava/local dispatcher, issue in pexpect most
+    # likely, it prints the messages from print() last, not by sequence.
+    # Using subprocess.call() as a work around.
+    # print('\n')
+    subprocess.call('echo')
+    subprocess.call('date')
     adb_command = "adb -s %s shell echo 'Checking adb connectivity...'" % SN
     adb_check = subprocess.Popen(shlex.split(adb_command))
     if adb_check.wait() != 0:
@@ -100,12 +106,6 @@ while child.isalive():
         py_test_lib.add_result(RESULT_FILE, result)
         break
     else:
-        # It might be an issue in lava/local dispatcher, issue in pexpect most
-        # likely, it prints the messages from print() last, not by sequence.
-        # Using subprocess.call() as a work around.
-        # print('adb device is alive.')
-        subprocess.call('echo')
-        subprocess.call('date')
         subprocess.call(['echo', 'adb device is alive'])
     try:
         # Check if all tests finished every minute.

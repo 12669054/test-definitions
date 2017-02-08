@@ -1,4 +1,4 @@
-#!/bin/sh -e
+#!/bin/sh
 
 # shellcheck disable=SC1091
 . ../../lib/sh-test-lib
@@ -9,7 +9,7 @@ JDK="openjdk-8-jdk-headless"
 JRE="openjdk-8-jre-headless"
 CTS_URL="http://testdata.validation.linaro.org/cts/android-cts-7.1_r1.zip"
 TEST_PARAMS="run cts -m CtsBionicTestCases --disable-reboot --skip-preconditions --skip-device-info"
-PKG_DEPS="zip xz-utils python-lxml python-setuptools python-pexpect aapt android-tools-adb android-tools-fastboot libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1-dev libc6-dev-i386 lib32gcc1"
+PKG_DEPS="wget zip xz-utils python-lxml python-setuptools python-pexpect aapt android-tools-adb android-tools-fastboot"
 
 usage() {
     echo "Usage: $0 [-s <true|false>] [-n serialno] [-d jdk-version] [-r jre-version] [-c cts_url] [-t test_params]" 1>&2
