@@ -42,11 +42,7 @@ if [ -d android-cts ]; then
         mv android-cts/results "android-cts/results_$(date +%Y%m%d%H%M%S)"
     fi
 else
-    wget "${CTS_URL}"
-    file_name=$(basename "${CTS_URL}")
-    unzip "${file_name}"
-    rm -f "${file_name}"
-    # cp -r /home/chase/Downloads/android-cts ./
+    cp -r /home/chase/Downloads/android-cts ./
 fi
 
 ./cts-runner.py -t "${TEST_PARAMS}" -n "${SN}"

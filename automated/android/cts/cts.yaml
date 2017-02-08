@@ -1,0 +1,29 @@
+metadata:
+    name: cts
+    format: "Lava-Test-Shell Test Definition 1.0"
+    description: "Run CTS on Linaro android."
+    maintainer:
+        - milosz.wasilewski@linaro.org
+        - chase.qi@linaro.org
+    os:
+        - ubuntu
+    devices:
+        - lxc
+    scope:
+        - functional
+
+
+params:
+    SN: ""
+    SKIP_INSTALL: "false"
+    DEPENDENCIES: "zip xz-utils python-lxml python-setuptools python-pexpect aapt android-tools-adb android-tools-fastboot libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1-dev libc6-dev-i386 lib32gcc1"
+    JDK: "openjdk-8-jdk-headless"
+    JRE: "openjdk-8-jre-headless"
+    CTS_URL: "http://testdata.validation.linaro.org/cts/android-cts-7.1_r1.zip"
+    TEST_PARAMS: "run cts -m CtsBionicTestCases --disable-reboot --skip-preconditions --skip-device-info"
+
+run:
+    steps:
+        - cd ./automated/android/cts
+        - ./cts.sh -s "${SKIP_INSTALL}" -n "${SN}" -d "${JDK}" -r "${JRE}" -c "${CTS_URL}" -t "${TEST_PARAMS}"
+        - ../../utils/send-to-lava.sh ./output/result.txt

@@ -1,88 +1,46 @@
 #!/usr/bin/env python
 
 import datetime
-import gzip
 import os
 import sys
 import shlex
 import shutil
 import subprocess
-import threading
-import urllib
 import xml.etree.ElementTree as ET
-import zipfile
 import pexpect
-import time
+import argparse
 
-CTS_STDOUT = "cts_stdout.txt"
-CTS_LOGCAT = "cts_logcat.txt"
+sys.path.insert(0, '../../lib/')
+import py_test_lib
 
+OUTPUT = '%s/output' % os.getcwd()
+RESULT_FILE = '%s/result.txt' % OUTPUT
+CTS_STDOUT = '%s/cts-stdout.txt' % OUTPUT
+CTS_LOGCAT = '%s/cts-logcat.txt' % OUTPUT
+TEST_PARAMS = ''
+SN = ''
 
-class Command(object):
-    def __init__(self, cmd):
-        self.cmd = cmd
-        self.process = None
-
-    def run(self, timeout):
-        def target():
-            print '%s' % datetime.datetime.now()
-            self.process = subprocess.Popen(self.cmd, shell=True)
-            self.process.communicate()
-
-        thread = threading.Thread(target=target)
-        thread.start()
-
-        thread.join(timeout)
-        if thread.is_alive():
-            print 'Terminating process'
-            self.process.terminate()
-            thread.join()
-        return self.process.returncode
+parser = argparse.ArgumentParser()
+parser.add_argument('-t', dest='TEST_PARAMS', required=True,
+                    help="cts test parameters")
+parser.add_argument('-n', dest='SN', required=True,
+                    help='Target device serial no.')
+args = parser.parse_args()
+TEST_PARAMS = args.TEST_PARAMS
+SN = args.SN
 
 
-class Heartbeat(threading.Thread):
-    def __init__(self, serial, process_list):
-        threading.Thread.__init__(self)
-        self.serial = serial
-        self.process_list = process_list
-        self.adb_ping = Command("adb -s %s shell echo \"OK\"" % serial)
-        self._finished = threading.Event()
-        self._interval = 30.0
-
-    def setInterval(self, interval):
-        self._interval = interval
-
-    def shutdown(self):
-        for process in self.process_list:
-            print "terminating process: %s" % process.pid
-            if process.poll() is None:
-                process.kill()
-        self._finished.set()
-
-    def run(self):
-        while 1:
-            if self._finished.isSet(): return
-            return_code = self.adb_ping.run(timeout=10)
-            if return_code != 0:
-                # terminate the test as adb connection is lost
-                print "terminating CTS for %s" % self.serial
-                for process in self.process_list:
-                    print "terminating process: %s" % process.pid
-                    if process.poll() is None:
-                        process.kill()
-                self._finished.set()
-            else:
-                print "%s is alive" % self.serial
-            self._finished.wait(self._interval)
+if os.path.exists(OUTPUT):
+    suffix = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    shutil.move(OUTPUT, '%s_%s' % (OUTPUT, suffix))
+os.makedirs(OUTPUT)
 
 
 def result_parser(xml_file):
     tree = ET.parse(xml_file)
-    # dump test result xml to stdout for debug
-    if debug_switcher is True:
-        ET.dump(tree)
     root = tree.getroot()
-    print 'There are ' + str(len(root.findall('TestPackage'))) + ' Test Packages in this test result file: ' + xml_file
+    print('Test packages in %s: %s' % (xml_file,
+                                       str(len(root.findall('TestPackage')))))
     # testcase_counter = 0
     for elem in root.findall('Module'):
         # Naming: Package Name + Test Case Name + Test Name
@@ -90,92 +48,86 @@ def result_parser(xml_file):
             package_name = '.'.join([elem.attrib['abi'], elem.attrib['name']])
         else:
             package_name = elem.attrib['name']
+
         tests_executed = len(elem.findall('.//Test'))
         tests_passed = len(elem.findall('.//Test[@result="pass"]'))
         tests_failed = len(elem.findall('.//Test[@result="fail"]'))
-        subprocess.call(['lava-test-case', package_name + '_executed', '--result', 'pass', '--measurement', str(tests_executed)])
-        subprocess.call(['lava-test-case', package_name + '_passed', '--result', 'pass', '--measurement', str(tests_passed)])
+
+        result = '%s_executed pass %s' % (package_name, str(tests_executed))
+        py_test_lib.add_result(RESULT_FILE, result)
+
+        result = '%s_passed pass %s' % (package_name, str(tests_passed))
+        py_test_lib.add_result(RESULT_FILE, result)
+
         failed_result = 'pass'
         if tests_failed > 0:
             failed_result = 'fail'
-        subprocess.call(['lava-test-case', package_name + '_failed', '--result', failed_result, '--measurement', str(tests_failed)])
+        result = '%s_failed %s %s' % (package_name, failed_result,
+                                      str(tests_failed))
+        py_test_lib.add_result(RESULT_FILE, result)
 
 
-# TODO
-target_device = sys.argv[2]
-# receive user input from JSON file and run
+# Run CTS test.
 cts_stdout = open(CTS_STDOUT, 'w')
-command = 'android-cts/tools/cts-tradefed ' + ' '.join([str(para) for para in sys.argv[3:]])
-print command
+# command = 'android-cts/tools/cts-tradefed ' + TEST_PARAMS
+# print('Test command: %s' % command)
+
 cts_logcat_out = open(CTS_LOGCAT, 'w')
 cts_logcat_command = "adb logcat"
-cts_logcat = subprocess.Popen(shlex.split(cts_logcat_command), stdout=cts_logcat_out)
+cts_logcat = subprocess.Popen(shlex.split(cts_logcat_command),
+                              stdout=cts_logcat_out)
 
-if 'fvp' in open('/tmp/lava_multi_node_cache.txt').read():
-    # On Fast Models, CTS test will exit abnormally when pipe used(Bug 1904), use
-    # pexpect here as a work around.
-    child = pexpect.spawn(command, logfile=cts_stdout)
-    print 'Starting CTS %s test...' % command.split(' ')[4]
-    print 'Start time: %s' % datetime.datetime.now()
-    # Since fvp is slow, give it some time to start the test.
-    time.sleep(120)
-    # Send exit command to cts-tf shell, so that TF will exit when remaining
-    # tests complete.
+print('Test params: %s' % TEST_PARAMS)
+test_name = TEST_PARAMS.split(' ')[3]
+print('Starting CTS %s test...' % test_name)
+print('Start time: %s' % datetime.datetime.now())
+
+child = pexpect.spawn('android-cts/tools/cts-tradefed', logfile=cts_stdout)
+try:
+    child.expect('cts-tf >', timeout=60)
+    child.sendline(TEST_PARAMS)
+except pexpect.TIMEOUT:
+    result = 'lunch-cts-rf-shell fail'
+    py_test_lib.add_result(RESULT_FILE, result)
+
+while child.isalive():
+    adb_command = "adb -s %s shell echo 'Checking adb connectivity...'" % SN
+    adb_check = subprocess.Popen(shlex.split(adb_command))
+    if adb_check.wait() != 0:
+        print('Terminating CTS test as adb connection is lost!')
+        child.terminate(force=True)
+        result = 'check-adb-connectivity fail'
+        py_test_lib.add_result(RESULT_FILE, result)
+        break
+    else:
+        # It might be an issue in lava/local dispatcher, issue in pexpect most
+        # likely, it prints the messages from print() last, not by sequence.
+        # Using subprocess.call() as a work around.
+        # print('adb device is alive.')
+        subprocess.call('echo')
+        subprocess.call('date')
+        subprocess.call(['echo', 'adb device is alive'])
     try:
-        if not child.expect('cts-tf >'):
-            child.sendline('exit')
+        # Check if all tests finished every minute.
+        child.expect('I/ResultReporter: Full Result:', timeout=60)
+        # Once all tests finshed, exit from tf shell and throws EOF.
+        child.sendline('exit')
+        child.expect(pexpect.EOF, timeout=60)
     except pexpect.TIMEOUT:
-        subprocess.call(['lava-test-case', 'CTS-Command-Check', '--result', 'fail'])
-        print 'Failed to launch CTS shell, exiting...'
-        sys.exit(1)
-    while child.isalive():
-        # When expect([pexpect.EOF]) returns 0, isalive() will be set to Flase.
-        fvp_adb_check = subprocess.Popen(['adb', '-s', target_device, 'shell', 'echo', 'OK'])
-        if fvp_adb_check.wait() != 0:
-            print 'Terminating CTS test as adb connection is lost'
-            child.terminate(force=True)
-            subprocess.call(['lava-test-case', 'CTS-Command-Check', '--result', 'fail'])
-            break
-        try:
-            child.expect([pexpect.EOF], timeout=60)
-        except pexpect.TIMEOUT:
-            print '%s is running...' % command.split(' ')[4]
-    print 'End time: %s' % datetime.datetime.now()
-    cts_logcat.kill()
-else:
-    return_check = subprocess.Popen(shlex.split(command), stdout=cts_stdout)
-    # start heartbeat process
-    heartbeat = Heartbeat(target_device, [return_check, cts_logcat])
-    heartbeat.daemon = True
-    heartbeat.start()
-    if return_check.wait() != 0:
-        # even though the whole command may not run successfully, continue to submit the existing result anyway
-        # add test case CTS-Command-Check to indicate this incident
-        print 'CTS command: ' + command + ' run failed!'
-        # collect_result(testcase_id='CTS-Command-Check', result='fail')
-        subprocess.call(['lava-test-case', 'CTS-Command-Check', '--result', 'fail'])
-    heartbeat.shutdown()
+        # print('%s is running...' % test_name)
+        subprocess.call(['echo', test_name + ' is running...'])
 
+print('End time: %s' % datetime.datetime.now())
+cts_logcat.kill()
 cts_logcat_out.close()
 cts_stdout.close()
 
-# TODO: If it is still needed, then it should be done in yaml file, but the feature isn't supported by LAVA V2 yet.
-# So commented out the following lines for the moment.
-# compress then attach the CTS stdout file to LAVA bundle
-# with open(CTS_STDOUT, 'rb') as f_in, gzip.open(CTS_STDOUT + '.gz', 'wb') as f_out:
-    # shutil.copyfileobj(f_in, f_out)
-# with open(CTS_LOGCAT, 'rb') as f_in, gzip.open(CTS_LOGCAT + '.gz', 'wb') as f_out:
-    # shutil.copyfileobj(f_in, f_out)
-# subprocess.call(['lava-test-run-attach', CTS_STDOUT + '.gz'])
-# subprocess.call(['lava-test-run-attach', CTS_LOGCAT + '.gz'])
-
+# TODO: result zip file attaching.
 # locate and parse the test result
 result_dir = 'android-cts/results'
 test_result = 'test_result.xml'
 if os.path.exists(result_dir) and os.path.isdir(result_dir):
     for root, dirs, files in os.walk(result_dir):
         for name in files:
-            # if name.endswith(".zip"):
-                # subprocess.call(['lava-test-run-attach', os.path.join(root, name)])
             if name == test_result:
                 result_parser(xml_file=os.path.join(root, name))
