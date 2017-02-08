@@ -3,46 +3,33 @@
 . ../../lib/sh-test-lib
 OUTPUT="$(pwd)/output"
 RESULT_FILE="${OUTPUT}/result.txt"
+TMP_FILE="${OUTPUT}/tmp.txt"
+
 # Absolute path to this script. /home/user/bin/foo.sh
 SCRIPT="$(readlink -f "${0}")"
 # Absolute path this script is in. /home/user/bin
 SCRIPTPATH="$(dirname "${SCRIPT}")"
 echo "Script path is: ${SCRIPTPATH}"
+
 # List of test cases
-TST_CMDFILES=""
-# List of test cases to be skipped
-SKIPFILE=""
+LTP_REALTIME_TESTS="async_handler gtod_latency hrtimer-prio matrix_mult measurement periodic_cpu_load pi_perf prio-preempt prio-wake pthread_kill_latency rt-migrate sched_football sched_jitter sched_latency thread_clock"
+
 # LTP version
 LTP_VERSION="20170116"
+SKIP_INSTALL="false"
 
 LTP_PATH=/opt/ltp
 
 usage() {
-    echo "Usage: ${0} [-T mm,math,syscalls] [-S skipfile-lsk-juno] [-s <flase>] [-v LTP_VERSION]" 1>&2
+    echo "Usage: ${0} [-T async_handler gtod_latency hrtimer-prio matrix_mult measurement periodic_cpu_load pi_perf prio-preempt prio-wake pthread_kill_latency rt-migrate sched_football sched_jitter sched_latency thread_clock] [-s <true|false>] [-v LTP_VERSION]" 1>&2
     exit 0
 }
 
-while getopts "T:S:s:v:" arg; do
+while getopts "T:s:v:" arg; do
    case "$arg" in
-     T)
-        TST_CMDFILES="${OPTARG}"
-        # shellcheck disable=SC2001
-        LOG_FILE=$(echo "${OPTARG}"| sed 's,\/,_,')
-        ;;
-     S)
-        OPT=$(echo "${OPTARG}" | grep "http")
-        if [ -z "${OPT}" ] ; then
-        # LTP skipfile
-          SKIPFILE="-S ${SCRIPTPATH}/${OPTARG}"
-        else
-        # Download LTP skipfile from speficied URL
-          wget "${OPTARG}" -O "skipfile"
-          SKIPFILE="skipfile"
-          SKIPFILE="-S ${SCRIPTPATH}/${SKIPFILE}"
-        fi
-        ;;
+     T) LTP_REALTIME_TESTS="${OPTARG}";;
      # SKIP_INSTALL is true in case of Open Embedded builds
-     # SKIP_INSTALL is flase in case of Debian builds
+     # SKIP_INSTALL is false in case of Debian builds
      s) SKIP_INSTALL="${OPTARG}";;
      v) LTP_VERSION="${OPTARG}";;
   esac
@@ -57,25 +44,19 @@ install_ltp() {
     # shellcheck disable=SC2140
     wget https://github.com/linux-test-project/ltp/releases/download/"${LTP_VERSION}"/ltp-full-"${LTP_VERSION}".tar.xz
     tar --strip-components=1 -Jxf ltp-full-"${LTP_VERSION}".tar.xz
-    ./configure
-    make -j8 all
-    make SKIP_IDCHECK=1 install
+    ./configure --with-realtime-testsuite
+    make -C testcases/realtime/
 }
 
-# Parse LTP output
-parse_ltp_output() {
-    egrep "PASS|FAIL|CONF"  "$1" | awk '{print $1" "$2}' | sed s/CONF/SKIP/  >> "${RESULT_FILE}"
-}
-
-# Run LTP test suite
-run_ltp() {
+# Run LTP realtime test suite
+run_ltp_realtime() {
     # shellcheck disable=SC2164
     cd "${LTP_PATH}"
-
-    pipe0_status "./runltp -p -q -f ${TST_CMDFILES} -l ${OUTPUT}/LTP_${LOG_FILE}.log -C ${OUTPUT}/LTP_${LOG_FILE}.failed ${SKIPFILE}" "tee ${OUTPUT}/LTP_${LOG_FILE}.out"
-    check_return "runltp_${LOG_FILE}"
-
-    parse_ltp_output "${OUTPUT}/LTP_${LOG_FILE}.log"
+    for TEST in ${LTP_REALTIME_TESTS}; do
+        pipe0_status "./testscripts/test_realtime.sh -t func/${TEST}"  "tee -a ${TMP_FILE}"
+    done
+    # shellcheck disable=SC2002
+    cat "${TMP_FILE}" | "${SCRIPTPATH}"/ltp-realtime.py 2>&1 | tee -a "${RESULT_FILE}"
 }
 
 # Test run.
@@ -83,7 +64,7 @@ run_ltp() {
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
 
-info_msg "About to run ltp test..."
+info_msg "About to run ltp realtime test..."
 info_msg "Output directory: ${OUTPUT}"
 
 if [ "${SKIP_INSTALL}" = "True" ] || [ "${SKIP_INSTALL}" = "true" ]; then
@@ -106,5 +87,5 @@ else
     info_msg "Run install_ltp"
     install_ltp
 fi
-info_msg "Running run_ltp"
-run_ltp
+info_msg "Running run_ltp_realtime"
+run_ltp_realtime

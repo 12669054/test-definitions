@@ -11,8 +11,8 @@ RESULT_FILE="${OUTPUT}/result.txt"
 export RESULT_FILE
 
 DURATION="300"
-MLOCKALL=""
-RR=""
+MLOCKALL="false"
+RR="false"
 
 usage() {
     echo "Usage: $0 [-d duration] [-m <true|false>] [-r <true|false>]" 1>&2
@@ -32,8 +32,16 @@ done
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
 
-test "${MLOCKALL}" && MLOCKALL="--mlockall"
-test "${RR}" && RR="--rr"
+if "${MLOCKALL}"; then
+    MLOCKALL="--mlockall"
+else
+    MLOCKALL=""
+fi
+if "${RR}"; then
+    RR="--rr"
+else
+    RR=""
+fi
 
 detect_abi
 # pi_stress will send SIGTERM when test fails. The single will terminate the

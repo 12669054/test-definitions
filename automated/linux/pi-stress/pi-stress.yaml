@@ -28,10 +28,10 @@ params:
     # Length of the test run in seconds
     DURATION: 300
     # Set MLOCKALL to "true" to lock current and future memory
-    MLOCKALL: ""
+    MLOCKALL: "false"
     # Set RR to "true" to use SCHED_RR for test threads.
     # It uses SCHED_FIFO by default.
-    RR: ""
+    RR: "false"
 
 run:
     steps:

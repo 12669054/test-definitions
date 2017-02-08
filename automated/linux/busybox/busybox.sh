@@ -1,15 +1,16 @@
-#!/bin/sh 
-# Busybox smoke test.
+#!/bin/sh
+# Busybox smoke tests.
 
 # shellcheck disable=SC1091
 . ../../lib/sh-test-lib
 
 OUTPUT="$(pwd)/output"
 RESULT_FILE="${OUTPUT}/result.txt"
+export RESULT_FILE
 
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
-cd "${OUTPUT}"
+cd "${OUTPUT}" || exit 1
 
 busybox
 exit_on_fail "busybox-existence"
@@ -38,6 +39,7 @@ check_return "cat"
 busybox grep 'busybox' dir/file.txt
 check_return "grep"
 
+# shellcheck disable=SC2016
 busybox awk '{printf("%s: awk\n", $0)}' dir/file.txt
 check_return "awk"
 

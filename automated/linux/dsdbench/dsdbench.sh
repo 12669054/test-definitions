@@ -26,8 +26,8 @@ done
 dist_name
 # shellcheck disable=SC2154
 case "${dist}" in
-    Debian|Ubuntu) pkgs="git golang libdevmapper-dev" ;;
-    Fedora|CentOS) pkgs="git golang device-mapper-devel" ;;
+    debian|ubuntu) pkgs="git golang libdevmapper-dev" ;;
+    fedora|centos) pkgs="git golang device-mapper-devel" ;;
 esac
 install_deps "${pkgs}" "${SKIP_INSTALL}"
 
@@ -42,7 +42,7 @@ cp -r vendor/ "${GOPATH}/src"
 
 if [ "${TEST_SUITE}" = "BENCHMARKS" ]; then
     # Run benchmarks.
-    DOCKER_GRAPHDRIVER=overlay2 go test -run=NONE -v -bench . 2>&1 \
+    DOCKER_GRAPHDRIVER=overlay2 go test -run=NONE -v -bench . \
         | tee "${LOG_FILE}"
 
     # Parse log file.
@@ -51,7 +51,7 @@ if [ "${TEST_SUITE}" = "BENCHMARKS" ]; then
         | tee -a "${RESULT_FILE}"
 elif [ "${TEST_SUITE}" = "TESTS" ]; then
     # Run tests.
-    DOCKER_GRAPHDRIVER=overlay2 go test -v . 2>&1 \
+    DOCKER_GRAPHDRIVER=overlay2 go test -v . \
         | tee "${LOG_FILE}"
 
     # Parse log file.

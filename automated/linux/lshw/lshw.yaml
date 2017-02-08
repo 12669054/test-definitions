@@ -1,8 +1,8 @@
 metadata:
-    name: signaltest
+    name: lshw
     format: "Lava-Test-Shell Test Definition 1.0"
-    description: "signaltest is a RT signal roundtrip test software."
-
+    description: "lshw is a small tool to extract detailed information
+                  on the hardware configuration of the machine."
     maintainer:
         - chase.qi@linaro.org
     os:
@@ -12,8 +12,7 @@ metadata:
         - centos
         - openembedded
     scope:
-        - performance
-        - preempt-rt
+        - functional
     environment:
         - lava-test-shell
     devices:
@@ -26,15 +25,12 @@ metadata:
         - d05
 
 params:
-    # Priority of highest prio thread.
-    PRIORITY: "99"
-    # Number of threads.
-    THREADS: "2"
-    # Number of loops.
-    LOOPS: "100000"
+    # Test if lshw able to report the classes pre-defined in ${CLASSES}.
+    CLASSES: "system bus processor memory network"
+    SKIP_INSTALL: "false"
 
 run:
     steps:
-        - cd ./automated/linux/signaltest
-        - ./signaltest.sh -p "${PRIORITY}" -t "${THREADS}" -l "${LOOPS}"
+        - cd ./automated/linux/lshw/
+        - ./lshw.sh -s "${SKIP_INSTALL}" -c "${CLASSES}"
         - ../../utils/send-to-lava.sh ./output/result.txt

@@ -1,10 +1,10 @@
 metadata:
     format: Lava-Test Test Definition 1.0
-    name: smoke-tests-basic
-    description: "Run basic smoke tests."
+    name: mmc-test
+    description: "The Multi Media Card (MMC) is a memory card standard used for solid-state storage
+                  This will perform Basic MMC tests"
     maintainer:
-        - milosz.wasilewski@linaro.org
-        - chase.qi@linaro.org
+        - naresh.kamboju@linaro.org
     os:
         - debian
         - ubuntu
@@ -16,20 +16,13 @@ metadata:
     devices:
         - panda
         - panda-es
-        - juno
+        - arndale
+        - beaglebone-black
         - hi6220-hikey
         - apq8016-sbc
-        - mustang
-        - moonshot
-        - thunderX
-        - d03
-        - d05
-
-params:
-    SKIP_INSTALL: "False"
 
 run:
     steps:
-        - cd ./automated/linux/smoke/
-        - ./smoke.sh -s "${SKIP_INSTALL}"
+        - cd ./automated/linux/mmc
+        - ./mmc-test.sh
         - ../../utils/send-to-lava.sh ./output/result.txt
