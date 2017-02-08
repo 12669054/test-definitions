@@ -18,23 +18,38 @@ SKIP_INSTALL="false"
 
 # sysbench test parameters.
 NUM_THREADS="1"
-TESTS="cpu memory threads mutex fileio oltp"
+# TESTS="cpu memory threads mutex fileio oltp"
+TESTS="cpu memory threads mutex fileio"
 
 usage() {
     echo "usage: $0 [-n <num-threads>] [-t <test>] [-s <true|false>] 1>&2"
     exit 1
 }
 
-while getopts "n:t:s:h" opt; do
+while getopts ":n:t:s:" opt; do
     case "${opt}" in
         n) NUM_THREADS="${OPTARG}" ;;
         t) TESTS="${OPTARG}" ;;
         s) SKIP_INSTALL="${OPTARG}" ;;
-        h|*) usage ;;
+        *) usage ;;
     esac
 done
 
-! check_root && error_msg "Plese run this script as root."
+install_sysbench() {
+    git clone https://github.com/akopytov/sysbench
+    cd sysbench
+    git checkout 0.4
+    ./autogen.sh
+    if echo "${TESTS}" | grep "oltp"; then
+        ./configure
+    else
+        ./configure --without-mysql
+    fi
+    make install
+    cd ../
+}
+
+! check_root && error_msg "Please run this script as root."
 [ -d "${OUTPUT}" ] && mv "${OUTPUT}" "${OUTPUT}_$(date +%Y%m%d%H%M%S)"
 mkdir -p "${OUTPUT}"
 cd "${OUTPUT}"
@@ -46,32 +61,30 @@ else
     dist_name
     # shellcheck disable=SC2154
     case "${dist}" in
-        Debian|Ubuntu)
-            install_deps "git build-essential automake libtool libmysqlclient-dev"
+        debian|ubuntu)
+            install_deps "git build-essential automake libtool"
             if echo "${TESTS}" | grep "oltp"; then
-                install_deps "mysql-server"
+                install_deps "libmysqlclient-dev mysql-server"
                 systemctl start mysql
             fi
+            install_sysbench
             ;;
-        Fedora|CentOS)
-            install_deps "git gcc make automake libtool mysql-devel"
+        fedora|centos)
+            install_deps "git gcc make automake libtool"
             if echo "${TESTS}" | grep "oltp"; then
-                install_deps "mariadb-server mariadb"
+                install_deps "mysql-devel mariadb-server mariadb"
                 systemctl start mariadb
             fi
+            install_sysbench
+            ;;
+        oe-rpb)
+            # Assume all dependent packages are already installed.
+            install_sysbench
             ;;
         *)
-            error_msg "Unsupported distribution: ${dist_name}"
+            warn_msg "Unsupported distro: ${dist}! Package installation skipped!"
             ;;
     esac
-
-    git clone https://github.com/akopytov/sysbench
-    cd sysbench
-    git checkout 0.4
-    ./autogen.sh
-    ./configure
-    make install
-    cd ../
 fi
 
 # Verify test installation.
@@ -129,7 +142,8 @@ for tc in ${TESTS}; do
                 echo 3 > /proc/sys/vm/drop_caches
                 sleep 5
                 sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" prepare
-                sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" run | tee "${logfile}"
+                # --file-extra-flags=direct is needed when file size is smaller then RAM.
+                sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-extra-flags=direct --file-total-size=2G --file-test-mode="${mode}" run | tee "${logfile}"
                 sysbench --num-threads="${NUM_THREADS}" --test=fileio --file-total-size=2G --file-test-mode="${mode}" cleanup
                 general_parser
 
