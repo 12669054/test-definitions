@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # shellcheck disable=SC1091
 . ../../lib/sh-test-lib
@@ -6,7 +6,6 @@
 . ../../lib/android-test-lib
 
 JDK="openjdk-8-jdk-headless"
-JRE="openjdk-8-jre-headless"
 CTS_URL="http://testdata.validation.linaro.org/cts/android-cts-7.1_r1.zip"
 TEST_PARAMS="run cts -m CtsBionicTestCases --disable-reboot --skip-preconditions --skip-device-info"
 PKG_DEPS="wget zip xz-utils python-lxml python-setuptools python-pexpect aapt android-tools-adb android-tools-fastboot"
@@ -21,7 +20,6 @@ while getopts ':s:n:d:r:c:t:' opt; do
         s) SKIP_INSTALL="${OPTARG}" ;;
         n) SN="${OPTARG}" ;;
         d) JDK="${OPTARG}" ;;
-        r) JRE="${OPTARG}" ;;
         c) CTS_URL="${OPTARG}" ;;
         t) TEST_PARAMS="${OPTARG}" ;;
         *) usage ;;
@@ -31,7 +29,7 @@ done
 test -z "${SN}" && export SN
 initialize_adb
 
-install_deps "${PKG_DEPS} ${JDK} ${JRE}" "${SKIP_INSTALL}"
+install_deps "${PKG_DEPS} ${JDK}" "${SKIP_INSTALL}"
 
 # Increase the heap size. KVM devices in LAVA default to ~250M of heap
 export _JAVA_OPTIONS="-Xmx350M"
@@ -42,11 +40,17 @@ if [ -d android-cts ]; then
         mv android-cts/results "android-cts/results_$(date +%Y%m%d%H%M%S)"
     fi
 else
-    wget "${CTS_URL}"
-    file_name=$(basename "${CTS_URL}")
-    unzip "${file_name}"
-    rm -f "${file_name}"
-    # cp -r /home/chase/Downloads/android-cts ./
+    if echo "${CTS_URL}" | grep "^http" ; then
+        wget "${CTS_URL}"
+        file_name=$(basename "${CTS_URL}")
+        unzip "${file_name}"
+        rm -f "${file_name}"
+    else
+        # For local run, set ${CTS_URL} to local android-cts copy so that
+        # you don't have to download it every time.
+        # For example: ~/Downloads/android-cts
+        cp -r "${CTS_URL}" ./
+    fi
 fi
 
 ./cts-runner.py -t "${TEST_PARAMS}" -n "${SN}"

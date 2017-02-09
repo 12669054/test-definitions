@@ -17,12 +17,11 @@ params:
     SN: ""
     SKIP_INSTALL: "false"
     JDK: "openjdk-8-jdk-headless"
-    JRE: "openjdk-8-jre-headless"
     CTS_URL: "http://testdata.validation.linaro.org/cts/android-cts-7.1_r1.zip"
     TEST_PARAMS: "run cts -m CtsBionicTestCases --disable-reboot --skip-preconditions --skip-device-info"
 
 run:
     steps:
         - cd ./automated/android/cts
-        - ./cts.sh -s "${SKIP_INSTALL}" -n "${SN}" -d "${JDK}" -r "${JRE}" -c "${CTS_URL}" -t "${TEST_PARAMS}"
+        - ./cts.sh -s "${SKIP_INSTALL}" -n "${SN}" -d "${JDK}" -c "${CTS_URL}" -t "${TEST_PARAMS}"
         - ../../utils/send-to-lava.sh ./output/result.txt

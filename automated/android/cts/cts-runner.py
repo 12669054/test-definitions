@@ -9,6 +9,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 import pexpect
 import argparse
+import logging
 
 sys.path.insert(0, '../../lib/')
 import py_test_lib
@@ -67,20 +68,24 @@ def result_parser(xml_file):
         py_test_lib.add_result(RESULT_FILE, result)
 
 
-# Run CTS test.
+# Setup logger.
+# It might be an issue in lava/local dispatcher, issue in pexpect most
+# likely, it prints the messages from print() last, not by sequence.
+# Use logging and subprocess.call() to work around this.
+logger = logging.getLogger('CTS')
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s: %(levelname)s: %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 cts_stdout = open(CTS_STDOUT, 'w')
-# command = 'android-cts/tools/cts-tradefed ' + TEST_PARAMS
-# print('Test command: %s' % command)
-
 cts_logcat_out = open(CTS_LOGCAT, 'w')
-cts_logcat_command = "adb logcat"
-cts_logcat = subprocess.Popen(shlex.split(cts_logcat_command),
-                              stdout=cts_logcat_out)
+cts_logcat = subprocess.Popen(['adb', 'logcat'], stdout=cts_logcat_out)
 
-print('Test params: %s' % TEST_PARAMS)
-test_name = TEST_PARAMS.split(' ')[3]
-print('Starting CTS %s test...' % test_name)
-print('Start time: %s' % datetime.datetime.now())
+logger.info('Test params: %s' % TEST_PARAMS)
+logger.info('Starting CTS test...')
 
 child = pexpect.spawn('android-cts/tools/cts-tradefed', logfile=cts_stdout)
 try:
@@ -91,33 +96,31 @@ except pexpect.TIMEOUT:
     py_test_lib.add_result(RESULT_FILE, result)
 
 while child.isalive():
-    # It might be an issue in lava/local dispatcher, issue in pexpect most
-    # likely, it prints the messages from print() last, not by sequence.
-    # Using subprocess.call() as a work around.
-    # print('\n')
     subprocess.call('echo')
-    subprocess.call('date')
-    adb_command = "adb -s %s shell echo 'Checking adb connectivity...'" % SN
+    logger.info('Checking adb connectivity...')
+    adb_command = "adb -s %s shell echo OK" % SN
     adb_check = subprocess.Popen(shlex.split(adb_command))
     if adb_check.wait() != 0:
-        print('Terminating CTS test as adb connection is lost!')
+        subprocess.call(['adb', 'devices'])
+        logger.error('Terminating CTS test as adb connection is lost!')
         child.terminate(force=True)
         result = 'check-adb-connectivity fail'
         py_test_lib.add_result(RESULT_FILE, result)
+        subprocess.call(['cat', 'output/cts-stdout.txt'])
+        subprocess.call(['cat', 'output/cts-logcat.txt'])
         break
     else:
-        subprocess.call(['echo', 'adb device is alive'])
+        logger.info('adb device is alive')
     try:
         # Check if all tests finished every minute.
         child.expect('I/ResultReporter: Full Result:', timeout=60)
-        # Once all tests finshed, exit from tf shell and throws EOF.
+        # Once all tests finshed, exit from tf shell and throw EOF.
         child.sendline('exit')
         child.expect(pexpect.EOF, timeout=60)
     except pexpect.TIMEOUT:
-        # print('%s is running...' % test_name)
-        subprocess.call(['echo', test_name + ' is running...'])
+        logger.info('cts is running...')
 
-print('End time: %s' % datetime.datetime.now())
+logger.info('Test finished')
 cts_logcat.kill()
 cts_logcat_out.close()
 cts_stdout.close()
