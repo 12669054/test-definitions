@@ -9,12 +9,13 @@ initialize_adb() {
             error_msg "More than one device or emulator found"
         elif [ "${number}" -eq 1 ]; then
             SN="$(adb get-serialno)"
+            export SN
         else
             error_msg "Device NOT found"
         fi
     fi
 
-    if adb -s "${SN}" shell ls / > /dev/null 2>&1; then
+    if adb -s "${SN}" shell echo "Testing adb connectivity"; then
         info_msg "Connected to device ${SN} successfully"
     else
         error_msg "Unable to connect to device ${SN}"

@@ -10,7 +10,6 @@ import datetime
 import shutil
 import signal
 from subprocess import call
-import subprocess
 
 sys.path.insert(0, '../../lib/')
 import py_test_lib

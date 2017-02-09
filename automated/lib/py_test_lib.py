@@ -1,6 +1,7 @@
 import sys
 import platform
 
+
 def detect_abi():
     abi = platform.machine()
 
@@ -12,12 +13,13 @@ def detect_abi():
     elif abi in arm64:
         abi = 'arm64'
     else:
-       print('ERROR: Unsupported Arch: %s' % abi)
-       sys.exit(1)
+        print('ERROR: Unsupported Arch: %s' % abi)
+        sys.exit(1)
 
     return abi
 
+
 def add_result(result_file, result):
     print(result)
-    with open(result_file, 'w') as f:
+    with open(result_file, 'a') as f:
         f.write('%s\n' % result)
